@@ -6,14 +6,12 @@ plugins {
 
 android {
     namespace = "com.demu.slim"
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.demu.slim"
         minSdk = 31
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 3
         versionName = "1.0.2"
     }
@@ -25,12 +23,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlin {
-        jvmToolchain(21)
+        jvmToolchain(17)
     }
 
     buildFeatures {
