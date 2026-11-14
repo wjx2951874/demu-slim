@@ -198,35 +198,20 @@ private fun openMedia(context: android.content.Context, row: GalleryOps.MediaRow
             return
         }
         val uri = FileProvider.getUriForFile(context, "com.demu.slim.fileprovider", file)
-        val probe = android.content.Intent(android.content.Intent.ACTION_VIEW).setType(mime)
-        val apps = context.packageManager.queryIntentActivities(probe, 0)
-        if (apps.isEmpty()) {
-            onError("没有能打开 $mime 的应用")
-            return
-        }
-        // 优先用小米相册自己的查看器（视频/图片都在里面）
-        val galleryApps = runCatching {
-            context.packageManager.queryIntentActivities(
-                android.content.Intent(android.content.Intent.ACTION_VIEW)
-                    .setType(mime)
-                    .setPackage("com.miui.gallery"),
-                0,
-            )
-        }.getOrElse { emptyList() }
-        val preferredPackages = setOf(
-            "com.miui.gallery",
-            "com.miui.videoplayer",
-            "com.miui.player",
-            "com.android.gallery3d",
-        )
-        val best = galleryApps.firstOrNull()?.activityInfo
-            ?: apps.firstOrNull { it.activityInfo.packageName in preferredPackages }?.activityInfo
-            ?: apps.first()
-        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+        val base = android.content.Intent(android.content.Intent.ACTION_VIEW)
             .setDataAndType(uri, mime)
-            .setClassName(best.activityInfo.packageName, best.activityInfo.name)
             .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(intent)
+
+        // 依次锁定具体应用：小米相册 → 小米视频 → 系统图库 → 任意一个（这时才会弹选择框）
+        val targets = listOf("com.miui.gallery", "com.miui.videoplayer", "com.miui.player", "com.android.gallery3d")
+        for (pkg in targets) {
+            val intent = android.content.Intent(base).setPackage(pkg)
+            if (context.packageManager.resolveActivity(intent, 0) != null) {
+                context.startActivity(intent)
+                return
+            }
+        }
+        context.startActivity(base)
     } catch (t: Throwable) {
         onError(t.message ?: "打开失败")
     }
