@@ -204,14 +204,24 @@ private fun openMedia(context: android.content.Context, row: GalleryOps.MediaRow
             onError("没有能打开 $mime 的应用")
             return
         }
+        // 优先用小米相册自己的查看器（视频/图片都在里面）
+        val galleryApps = runCatching {
+            context.packageManager.queryIntentActivities(
+                android.content.Intent(android.content.Intent.ACTION_VIEW)
+                    .setType(mime)
+                    .setPackage("com.miui.gallery"),
+                0,
+            )
+        }.getOrElse { emptyList() }
         val preferredPackages = setOf(
-            "com.miui.videoplayer",
             "com.miui.gallery",
+            "com.miui.videoplayer",
             "com.miui.player",
-            "com.google.android.apps.photos",
             "com.android.gallery3d",
         )
-        val best = apps.firstOrNull { it.activityInfo.packageName in preferredPackages } ?: apps.first()
+        val best = galleryApps.firstOrNull()?.activityInfo
+            ?: apps.firstOrNull { it.activityInfo.packageName in preferredPackages }?.activityInfo
+            ?: apps.first()
         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
             .setDataAndType(uri, mime)
             .setClassName(best.activityInfo.packageName, best.activityInfo.name)
