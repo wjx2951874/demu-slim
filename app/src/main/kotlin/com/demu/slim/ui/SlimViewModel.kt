@@ -35,7 +35,7 @@ class SlimViewModel(private val context: Context) {
     var minAgeDays by mutableStateOf(3)
         private set
 
-    fun setMinAgeDays(days: Int) {
+    fun pickAgeDays(days: Int) {
         minAgeDays = days
         log(if (days <= 0) "· 时间门槛改为：不限" else "· 时间门槛改为：${days} 天前", BLUE)
     }

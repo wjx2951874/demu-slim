@@ -133,7 +133,7 @@ fun SlimApp(vm: SlimViewModel) {
                         }
                     }
                     item(key = "age") {
-                        AgeCard(days = vm.minAgeDays, onPick = { vm.setMinAgeDays(it) })
+                        AgeCard(days = vm.minAgeDays, onPick = { vm.pickAgeDays(it) })
                     }
                     item(key = "options") {
                         Card(modifier = Modifier.fillMaxWidth()) {
