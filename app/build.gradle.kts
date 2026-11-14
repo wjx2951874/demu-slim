@@ -20,8 +20,8 @@ android {
         applicationId = "com.demu.slim"
         minSdk = 31
         targetSdk = 37
-        versionCode = 11
-        versionName = "1.0.10"
+        versionCode = 12
+        versionName = "1.0.11"
     }
 
     signingConfigs {
@@ -37,8 +37,13 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 
