@@ -20,8 +20,8 @@ android {
         applicationId = "com.demu.slim"
         minSdk = 31
         targetSdk = 37
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.7"
     }
 
     signingConfigs {

@@ -128,22 +128,7 @@ fun SlimApp(vm: SlimViewModel) {
                             DetailCard(
                                 title = vm.detailsTitle,
                                 rows = vm.details,
-                                onOpen = { row ->
-                                    runCatching {
-                                        val uri = FileProvider.getUriForFile(
-                                            context,
-                                            "com.demu.slim.fileprovider",
-                                            java.io.File(row.path),
-                                        )
-                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-                                            .setDataAndType(uri, if (row.path.endsWith(".mp4")) "video/*" else "image/*")
-                                            .addFlags(
-                                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK,
-                                            )
-                                        context.startActivity(intent)
-                                    }.onFailure { vm.log("✗ 打不开文件：${it.message}", SlimViewModel.RED) }
-                                },
+                                onOpen = { row -> vm.play(row) },
                             )
                         }
                     }
@@ -194,7 +179,74 @@ fun SlimApp(vm: SlimViewModel) {
                         }
                     }
                 }
+                MediaOverlay(vm = vm)
             }
+        }
+    }
+}
+
+@Composable
+private fun MediaOverlay(vm: SlimViewModel) {
+    val row = vm.playing ?: return
+    val context = LocalContext.current
+    val lower = row.path.lowercase()
+    val isVideo = lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".mov") ||
+        lower.endsWith(".webm") || lower.endsWith(".3gp") || lower.endsWith(".avi")
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF000000)),
+    ) {
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "com.demu.slim.fileprovider",
+            java.io.File(row.path),
+        )
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { ctx ->
+                if (isVideo) {
+                    android.widget.VideoView(ctx).apply {
+                        setVideoURI(uri)
+                        val controller = android.widget.MediaController(ctx)
+                        controller.setAnchorView(this)
+                        setMediaController(controller)
+                        setOnPreparedListener { mp ->
+                            mp.isLooping = false
+                            start()
+                        }
+                        setOnErrorListener { _, _, _ ->
+                            vm.log("✗ 播不了这个文件（可能已缺失或编码特殊）", SlimViewModel.RED)
+                            true
+                        }
+                    }
+                } else {
+                    android.widget.ImageView(ctx).apply {
+                        setImageURI(uri)
+                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = row.path.substringAfterLast('/'),
+                fontSize = 14.sp,
+                color = Color(0xFFFFFFFF),
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                text = "关闭",
+                onClick = { vm.stopPlay() },
+            )
         }
     }
 }
