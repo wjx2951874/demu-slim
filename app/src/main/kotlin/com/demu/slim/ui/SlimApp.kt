@@ -1,6 +1,7 @@
 package com.demu.slim.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,8 +38,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import com.demu.slim.core.GalleryOps
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -65,6 +68,7 @@ fun SlimApp(vm: SlimViewModel) {
     ) {
         val scrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
         val scope = rememberCoroutineScope()
+        val context = LocalContext.current
         LaunchedEffect(Unit) { vm.refreshRoot(scope) }
 
         Scaffold(
@@ -121,7 +125,26 @@ fun SlimApp(vm: SlimViewModel) {
                     }
                     if (vm.details.isNotEmpty()) {
                         item(key = "details") {
-                            DetailCard(title = vm.detailsTitle, rows = vm.details)
+                            DetailCard(
+                                title = vm.detailsTitle,
+                                rows = vm.details,
+                                onOpen = { row ->
+                                    runCatching {
+                                        val uri = FileProvider.getUriForFile(
+                                            context,
+                                            "com.demu.slim.fileprovider",
+                                            java.io.File(row.path),
+                                        )
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                            .setDataAndType(uri, if (row.path.endsWith(".mp4")) "video/*" else "image/*")
+                                            .addFlags(
+                                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK,
+                                            )
+                                        context.startActivity(intent)
+                                    }.onFailure { vm.log("✗ 打不开文件：${it.message}", SlimViewModel.RED) }
+                                },
+                            )
                         }
                     }
                     item(key = "options") {
@@ -333,10 +356,15 @@ private fun StatsCard(
 }
 
 @Composable
-private fun DetailCard(title: String, rows: List<GalleryOps.MediaRow>) {
+private fun DetailCard(
+    title: String,
+    rows: List<GalleryOps.MediaRow>,
+    onOpen: (GalleryOps.MediaRow) -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text(text = "点任意一行直接打开该文件", fontSize = 13.sp)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -347,7 +375,13 @@ private fun DetailCard(title: String, rows: List<GalleryOps.MediaRow>) {
             ) {
                 LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(rows) { row ->
-                        Row(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onOpen(row) }
+                                .padding(vertical = 4.dp, horizontal = 2.dp),
+                        ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = row.path.substringAfterLast('/'),

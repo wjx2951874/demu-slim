@@ -20,8 +20,8 @@ android {
         applicationId = "com.demu.slim"
         minSdk = 31
         targetSdk = 37
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 7
+        versionName = "1.0.6"
     }
 
     signingConfigs {
@@ -64,6 +64,7 @@ android {
 
 dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.compose.foundation:foundation:1.12.1")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
