@@ -77,7 +77,7 @@ class SlimViewModel(private val context: Context) {
                     GREEN,
                 )
             } else {
-                log("✗ 读不到 gallery.db，请确认 root 已授权", RED)
+                log("✗ 读不到 gallery.db：${GalleryOps.lastError}", RED)
             }
         }
     }
