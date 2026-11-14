@@ -144,6 +144,46 @@ object GalleryOps {
         }
     }
 
+    data class MediaRow(
+        val id: Long,
+        val path: String,
+        val size: Long,
+        val dateTaken: Long,
+        val synced: Boolean,
+    )
+
+    /** 列出仍占本地的视频 / 照片，用于“一键查看明细”。 */
+    fun mediaRows(ctx: Context, video: Boolean): List<MediaRow> {
+        val db = copyDb(ctx) ?: return emptyList()
+        val like = if (video) "video/%" else "image/%"
+        return try {
+            SQLiteDatabase.openDatabase(db.path, null, SQLiteDatabase.OPEN_READONLY).use { d ->
+                val rows = ArrayList<MediaRow>()
+                d.rawQuery(
+                    "select _id, localFile, size, dateTaken, length(serverId)>0 from cloud " +
+                        "where length(localFile)>0 and mimeType like '$like' order by size desc",
+                    null,
+                ).use { c ->
+                    while (c.moveToNext()) {
+                        val path = c.getString(1) ?: continue
+                        if (path.isEmpty()) continue
+                        rows += MediaRow(
+                            id = c.getLong(0),
+                            path = path,
+                            size = c.getLong(2),
+                            dateTaken = c.getLong(3),
+                            synced = c.getInt(4) != 0,
+                        )
+                    }
+                }
+                rows
+            }
+        } catch (t: Throwable) {
+            lastError = "读取明细失败：${t.message}"
+            emptyList()
+        }
+    }
+
     fun pendingCount(): Int {
         val r = RootShell.run("[ -f ${q(INDEX)} ] && wc -l < ${q(INDEX)} || echo 0", 30)
         return r.out.trim().lines().lastOrNull()?.trim()?.toIntOrNull() ?: 0

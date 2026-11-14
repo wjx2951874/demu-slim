@@ -5,6 +5,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.demu.slim.core.GalleryOps
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -113,7 +115,14 @@ fun SlimApp(vm: SlimViewModel) {
                             dbOk = vm.stats.dbOk,
                             busy = vm.busy,
                             onScan = { vm.scan(scope) },
+                            onViewVideos = { vm.loadDetails(scope, true) },
+                            onViewPhotos = { vm.loadDetails(scope, false) },
                         )
+                    }
+                    if (vm.details.isNotEmpty()) {
+                        item(key = "details") {
+                            DetailCard(title = vm.detailsTitle, rows = vm.details)
+                        }
                     }
                     item(key = "options") {
                         Card(modifier = Modifier.fillMaxWidth()) {
@@ -278,6 +287,8 @@ private fun StatsCard(
     dbOk: Boolean,
     busy: Boolean,
     onScan: () -> Unit,
+    onViewVideos: () -> Unit,
+    onViewPhotos: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -303,9 +314,63 @@ private fun StatsCard(
                 onClick = onScan,
                 modifier = Modifier.fillMaxWidth(),
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    text = "查看视频明细",
+                    enabled = !busy,
+                    onClick = onViewVideos,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    text = "查看照片明细",
+                    enabled = !busy,
+                    onClick = onViewPhotos,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
+
+@Composable
+private fun DetailCard(title: String, rows: List<GalleryOps.MediaRow>) {
+    Card(modifier = Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 280.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0B1220))
+                    .padding(10.dp),
+            ) {
+                LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(rows) { row ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = row.path.substringAfterLast('/'),
+                                    fontSize = 13.sp,
+                                    color = Color(0xFFFFFFFF),
+                                    maxLines = 1,
+                                )
+                                Text(
+                                    text = "${format(row.size)} · ${dateOf(row.dateTaken)} · ${if (row.synced) "可瘦身" else "无云端，不动"}",
+                                    fontSize = 11.sp,
+                                    color = if (row.synced) Color(0xFF5FD68A) else Color(0xFFFFC94D),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun dateOf(ms: Long): String = if (ms <= 0) "未知时间" else
+    java.text.SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(java.util.Date(ms))
 
 @Composable
 private fun LogPanel(lines: List<LogLine>, modifier: Modifier = Modifier) {

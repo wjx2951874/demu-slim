@@ -33,10 +33,27 @@ class SlimViewModel(private val context: Context) {
 
     val deviceModel: String = "${Build.MANUFACTURER} ${Build.MODEL}"
     val androidVersion: String = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-    val galleryVersion: String = runCatching {
-        val info = context.packageManager.getPackageInfo("com.miui.gallery", 0)
-        "${info.versionName} (${info.longVersionCode})"
-    }.getOrDefault("未安装 / 无法读取")
+    var galleryVersion by mutableStateOf("读取中…")
+        private set
+
+    var details by mutableStateOf<List<GalleryOps.MediaRow>>(emptyList())
+        private set
+    var detailsTitle by mutableStateOf("")
+        private set
+
+    /** 包可见性可能被限制，读不到就退回 dumpsys 查 versionName。 */
+    private fun resolveGalleryVersion(): String {
+        runCatching {
+            val info = context.packageManager.getPackageInfo("com.miui.gallery", 0)
+            val name = info.versionName ?: "?"
+            return "$name (${info.longVersionCode})"
+        }
+        val out = RootShell.run(
+            "dumpsys package com.miui.gallery | grep -m1 versionName",
+            20,
+        ).out.trim()
+        return if (out.isBlank()) "未安装 / 无法读取" else out.removePrefix("versionName=")
+    }
 
     private val stamp = SimpleDateFormat("HH:mm:ss", Locale.ROOT)
 
@@ -53,6 +70,7 @@ class SlimViewModel(private val context: Context) {
         scope.launch {
             val ok = withContext(Dispatchers.IO) { RootShell.hasRoot() }
             rootReady = ok
+            galleryVersion = withContext(Dispatchers.IO) { resolveGalleryVersion() }
             if (ok) {
                 log("root 已就绪 (uid=0)", GREEN)
             } else {
@@ -83,6 +101,22 @@ class SlimViewModel(private val context: Context) {
             } else {
                 log("✗ 读不到 gallery.db：${GalleryOps.lastError}", RED)
             }
+        }
+    }
+
+    fun loadDetails(scope: CoroutineScope, video: Boolean) {
+        if (busy) return
+        busy = true
+        scope.launch {
+            log("读取${if (video) "视频" else "照片"}明细…")
+            val rows = withContext(Dispatchers.IO) { GalleryOps.mediaRows(context, video) }
+            details = rows
+            detailsTitle = "本地${if (video) "视频" else "照片"}明细（${rows.size} 项）"
+            busy = false
+            log(
+                if (rows.isEmpty()) "· 没有占本地的条目" else "· ${rows.count { it.synced }} 项已同步、可瘦身",
+                if (rows.isEmpty()) AMBER else GREEN,
+            )
         }
     }
 
