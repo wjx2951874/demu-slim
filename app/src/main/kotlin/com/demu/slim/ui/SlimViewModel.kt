@@ -53,7 +53,11 @@ class SlimViewModel(private val context: Context) {
         scope.launch {
             val ok = withContext(Dispatchers.IO) { RootShell.hasRoot() }
             rootReady = ok
-            log(if (ok) "root 已就绪 (uid=0)" else "未获得 root，功能受限", if (ok) GREEN else RED)
+            if (ok) {
+                log("root 已就绪 (uid=0)", GREEN)
+            } else {
+                log("root 获取失败：${RootShell.lastError}", RED)
+            }
         }
     }
 

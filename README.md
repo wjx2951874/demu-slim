@@ -33,3 +33,8 @@ gradle :app:assembleDebug
 ```
 
 CI 在 `.github/workflows/build.yml`，push 到 main 自动出 APK。
+
+## 签名
+
+`keystore/demu-release.jks` + `keystore.properties` 一起提交在仓库里，CI 用同一把 key 签 release，
+所以之后的版本都能直接覆盖安装，不需要卸载。代价是这把 key 是公开的（私有仓库可自行换掉）。
