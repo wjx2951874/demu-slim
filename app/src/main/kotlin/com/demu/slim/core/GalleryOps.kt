@@ -41,7 +41,7 @@ object GalleryOps {
     )
 
     fun prepare(): Boolean {
-        val q = RootShell.shellQuote
+        fun q(v: String): String = RootShell.shellQuote(v)
         val r = RootShell.run("mkdir -p ${q(MOVED)} ${q(BACKUP)}; echo OK")
         return r.out.contains("OK")
     }
@@ -53,7 +53,7 @@ object GalleryOps {
         val dir = File(ctx.cacheDir, "db").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
         val target = File(dir, "gallery.db")
-        val q = RootShell.shellQuote
+        fun q(v: String): String = RootShell.shellQuote(v)
         val uid = Process.myUid()
         val t = q(target.absolutePath)
         val cmd = buildString {
@@ -183,7 +183,7 @@ object GalleryOps {
         log("· 停止相册进程")
         RootShell.run("am force-stop com.miui.gallery; sleep 2")
 
-        val q = RootShell.shellQuote
+        fun q(v: String): String = RootShell.shellQuote(v)
         val script = StringBuilder()
         script.append("mkdir -p ${q(MOVED)}\n")
         script.append(": > ${q(TMP_INDEX)}\n")
@@ -264,7 +264,7 @@ object GalleryOps {
             log("✗ 没有 root")
             return false
         }
-        val q = RootShell.shellQuote
+        fun q(v: String): String = RootShell.shellQuote(v)
         val backup = File(ctx.filesDir, "last_backup.txt").takeIf { it.exists() }?.readText()?.trim()
         if (backup.isNullOrBlank()) {
             log("✗ 找不到备份记录")
@@ -313,7 +313,7 @@ object GalleryOps {
             log("✗ 没有 root")
             return false
         }
-        val q = RootShell.shellQuote
+        fun q(v: String): String = RootShell.shellQuote(v)
         val r = RootShell.run("rm -rf ${q(MOVED)}; mkdir -p ${q(MOVED)}; : > ${q(INDEX)}; echo PURGED")
         log(if (r.out.contains("PURGED")) "· 暂存区已清空" else "✗ 清理失败")
         return r.out.contains("PURGED")
