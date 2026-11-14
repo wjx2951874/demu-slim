@@ -128,7 +128,7 @@ fun SlimApp(vm: SlimViewModel) {
                             DetailCard(
                                 title = vm.detailsTitle,
                                 rows = vm.details,
-                                onOpen = { row -> vm.play(row) },
+                                onOpen = { row -> openMedia(context, row) { msg -> vm.log("✗ $msg", SlimViewModel.RED) } },
                             )
                         }
                     }
@@ -179,75 +179,46 @@ fun SlimApp(vm: SlimViewModel) {
                         }
                     }
                 }
-                MediaOverlay(vm = vm)
             }
         }
     }
 }
 
-@Composable
-private fun MediaOverlay(vm: SlimViewModel) {
-    val row = vm.playing ?: return
-    val context = LocalContext.current
+
+/** 直接指定一个能处理该类型的应用，避免弹“打开方式”选择框。 */
+private fun openMedia(context: android.content.Context, row: GalleryOps.MediaRow, onError: (String) -> Unit) {
     val lower = row.path.lowercase()
     val isVideo = lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".mov") ||
         lower.endsWith(".webm") || lower.endsWith(".3gp") || lower.endsWith(".avi")
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF000000)),
-    ) {
-        val uri = androidx.core.content.FileProvider.getUriForFile(
-            context,
-            "com.demu.slim.fileprovider",
-            java.io.File(row.path),
-        )
-        androidx.compose.ui.viewinterop.AndroidView(
-            factory = { ctx ->
-                if (isVideo) {
-                    android.widget.VideoView(ctx).apply {
-                        setVideoURI(uri)
-                        val controller = android.widget.MediaController(ctx)
-                        controller.setAnchorView(this)
-                        setMediaController(controller)
-                        setOnPreparedListener { mp ->
-                            mp.isLooping = false
-                            start()
-                        }
-                        setOnErrorListener { _, _, _ ->
-                            vm.log("✗ 播不了这个文件（可能已缺失或编码特殊）", SlimViewModel.RED)
-                            true
-                        }
-                    }
-                } else {
-                    android.widget.ImageView(ctx).apply {
-                        setImageURI(uri)
-                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = row.path.substringAfterLast('/'),
-                fontSize = 14.sp,
-                color = Color(0xFFFFFFFF),
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(
-                text = "关闭",
-                onClick = { vm.stopPlay() },
-            )
+    val mime = if (isVideo) "video/*" else "image/*"
+    try {
+        val file = java.io.File(row.path)
+        if (!file.exists()) {
+            onError("文件已不存在：${row.path.substringAfterLast('/')}")
+            return
         }
+        val uri = FileProvider.getUriForFile(context, "com.demu.slim.fileprovider", file)
+        val probe = android.content.Intent(android.content.Intent.ACTION_VIEW).setType(mime)
+        val apps = context.packageManager.queryIntentActivities(probe, 0)
+        if (apps.isEmpty()) {
+            onError("没有能打开 $mime 的应用")
+            return
+        }
+        val preferredPackages = setOf(
+            "com.miui.videoplayer",
+            "com.miui.gallery",
+            "com.miui.player",
+            "com.google.android.apps.photos",
+            "com.android.gallery3d",
+        )
+        val best = apps.firstOrNull { it.activityInfo.packageName in preferredPackages } ?: apps.first()
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+            .setDataAndType(uri, mime)
+            .setClassName(best.activityInfo.packageName, best.activityInfo.name)
+            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(intent)
+    } catch (t: Throwable) {
+        onError(t.message ?: "打开失败")
     }
 }
 

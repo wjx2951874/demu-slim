@@ -3,6 +3,14 @@
 
     <queries>
         <package android:name="com.miui.gallery" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="video/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="image/*" />
+        </intent>
     </queries>
 
     <application
