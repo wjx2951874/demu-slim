@@ -107,7 +107,13 @@ object GalleryOps {
     private fun long(d: SQLiteDatabase, sql: String): Long =
         d.rawQuery(sql, null).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
 
-    fun scan(ctx: Context): Stats {
+    private fun ageClause(minAgeDays: Int): String {
+        if (minAgeDays <= 0) return ""
+        val cutoff = System.currentTimeMillis() - minAgeDays.toLong() * 86_400_000L
+        return " and dateTaken>0 and dateTaken<=$cutoff"
+    }
+
+    fun scan(ctx: Context, minAgeDays: Int = 0): Stats {
         val db = copyDb(ctx) ?: return Stats(dbOk = false)
         return try {
             SQLiteDatabase.openDatabase(db.path, null, SQLiteDatabase.OPEN_READONLY).use { d ->
@@ -120,7 +126,7 @@ object GalleryOps {
                     long(
                         d,
                         "select sum(size) from cloud where length(localFile)>0 and length(serverId)>0 " +
-                            "and mimeType like 'video/%'",
+                            "and mimeType like 'video/%'" + ageClause(minAgeDays),
                     )
                 val photoLocalCount =
                     long(d, "select count(*) from cloud where length(localFile)>0 and mimeType like 'image/%'").toInt()
@@ -150,10 +156,13 @@ object GalleryOps {
         val size: Long,
         val dateTaken: Long,
         val synced: Boolean,
+        val eligible: Boolean,
     )
 
     /** 列出仍占本地的视频 / 照片，用于“一键查看明细”。 */
-    fun mediaRows(ctx: Context, video: Boolean): List<MediaRow> {
+    fun mediaRows(ctx: Context, video: Boolean, minAgeDays: Int = 0): List<MediaRow> {
+        val cutoff = if (minAgeDays <= 0) Long.MAX_VALUE
+        else System.currentTimeMillis() - minAgeDays.toLong() * 86_400_000L
         val db = copyDb(ctx) ?: return emptyList()
         val like = if (video) "video/%" else "image/%"
         return try {
@@ -167,12 +176,17 @@ object GalleryOps {
                     while (c.moveToNext()) {
                         val path = c.getString(1) ?: continue
                         if (path.isEmpty()) continue
+                        val dateTaken = c.getLong(3)
+                        val synced = c.getInt(4) != 0
+                        val oldEnough = if (cutoff == Long.MAX_VALUE) true
+                        else dateTaken > 0 && dateTaken <= cutoff
                         rows += MediaRow(
                             id = c.getLong(0),
                             path = path,
                             size = c.getLong(2),
-                            dateTaken = c.getLong(3),
-                            synced = c.getInt(4) != 0,
+                            dateTaken = dateTaken,
+                            synced = synced,
+                            eligible = synced && oldEnough,
                         )
                     }
                 }
@@ -205,6 +219,7 @@ object GalleryOps {
         ctx: Context,
         includeVideos: Boolean,
         includePhotos: Boolean,
+        minAgeDays: Int,
         log: (String) -> Unit,
     ): Boolean {
         if (!RootShell.hasRoot()) {
@@ -244,7 +259,7 @@ object GalleryOps {
                 if (includeVideos) types += "mimeType like 'video/%'"
                 if (includePhotos) types += "mimeType like 'image/%'"
                 val sql = "select _id, localFile, size from cloud where length(localFile)>0 " +
-                    "and length(serverId)>0 and (" + types.joinToString(" or ") + ")"
+                    "and length(serverId)>0 and (" + types.joinToString(" or ") + ")" + ageClause(minAgeDays)
                 d.rawQuery(sql, null).use { c ->
                     while (c.moveToNext()) {
                         val path = c.getString(1) ?: continue

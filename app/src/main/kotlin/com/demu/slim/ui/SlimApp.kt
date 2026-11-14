@@ -132,6 +132,9 @@ fun SlimApp(vm: SlimViewModel) {
                             )
                         }
                     }
+                    item(key = "age") {
+                        AgeCard(days = vm.minAgeDays, onPick = { vm.setMinAgeDays(it) })
+                    }
                     item(key = "options") {
                         Card(modifier = Modifier.fillMaxWidth()) {
                             SwitchPreference(
@@ -374,6 +377,37 @@ private fun StatsCard(
 }
 
 @Composable
+private fun AgeCard(days: Int, onPick: (Int) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(text = "只处理多久之前的", fontSize = 17.sp, fontWeight = FontWeight.Medium)
+            Text(
+                text = if (days <= 0) "当前：不限，全部可瘦身的都会动" else "当前：${days} 天前的才动，比这新的就算点了也不碰",
+                fontSize = 14.sp,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(1, 3, 5, 7, 30).forEach { d ->
+                    TextButton(
+                        text = "${d}天",
+                        colors = if (days == d) ButtonDefaults.textButtonColorsPrimary()
+                        else ButtonDefaults.textButtonColors(),
+                        onClick = { onPick(d) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                TextButton(
+                    text = "不限",
+                    colors = if (days <= 0) ButtonDefaults.textButtonColorsPrimary()
+                    else ButtonDefaults.textButtonColors(),
+                    onClick = { onPick(0) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun DetailCard(
     title: String,
     rows: List<GalleryOps.MediaRow>,
@@ -408,9 +442,17 @@ private fun DetailCard(
                                     maxLines = 1,
                                 )
                                 Text(
-                                    text = "${format(row.size)} · ${dateOf(row.dateTaken)} · ${if (row.synced) "可瘦身" else "无云端，不动"}",
+                                    text = "${format(row.size)} · ${dateOf(row.dateTaken)} · ${when {
+                                            row.eligible -> "可瘦身"
+                                            !row.synced -> "无云端，不动"
+                                            else -> "太新，跳过"
+                                        }}",
                                     fontSize = 11.sp,
-                                    color = if (row.synced) Color(0xFF5FD68A) else Color(0xFFFFC94D),
+                                    color = when {
+                                            row.eligible -> Color(0xFF5FD68A)
+                                            !row.synced -> Color(0xFFFFC94D)
+                                            else -> Color(0xFF8A8F98)
+                                        },
                                 )
                             }
                         }

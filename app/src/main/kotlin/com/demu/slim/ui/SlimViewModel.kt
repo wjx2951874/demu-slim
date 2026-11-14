@@ -31,6 +31,15 @@ class SlimViewModel(private val context: Context) {
     var includeVideos by mutableStateOf(true)
     var includePhotos by mutableStateOf(false)
 
+    /** 只处理这么多天之前的媒体；0 表示不限。 */
+    var minAgeDays by mutableStateOf(3)
+        private set
+
+    fun setMinAgeDays(days: Int) {
+        minAgeDays = days
+        log(if (days <= 0) "· 时间门槛改为：不限" else "· 时间门槛改为：${days} 天前", BLUE)
+    }
+
     val deviceModel: String = "${Build.MANUFACTURER} ${Build.MODEL}"
     val androidVersion: String = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
     var galleryVersion by mutableStateOf("读取中…")
@@ -90,7 +99,7 @@ class SlimViewModel(private val context: Context) {
                 if (!rootReady) {
                     rootReady = RootShell.hasRoot()
                 }
-                if (rootReady) GalleryOps.scan(context) else GalleryOps.Stats(dbOk = false)
+                if (rootReady) GalleryOps.scan(context, minAgeDays) else GalleryOps.Stats(dbOk = false)
             }
             stats = result
             busy = false
@@ -119,7 +128,7 @@ class SlimViewModel(private val context: Context) {
         busy = true
         scope.launch {
             log("读取${if (video) "视频" else "照片"}明细…")
-            val rows = withContext(Dispatchers.IO) { GalleryOps.mediaRows(context, video) }
+            val rows = withContext(Dispatchers.IO) { GalleryOps.mediaRows(context, video, minAgeDays) }
             details = rows
             detailsTitle = "本地${if (video) "视频" else "照片"}明细（${rows.size} 项）"
             busy = false
@@ -135,11 +144,11 @@ class SlimViewModel(private val context: Context) {
         busy = true
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
-                GalleryOps.slim(context, includeVideos, includePhotos) { line ->
+                GalleryOps.slim(context, includeVideos, includePhotos, minAgeDays) { line ->
                     log(line, pickColor(line))
                 }
             }
-            withContext(Dispatchers.IO) { stats = GalleryOps.scan(context) }
+            withContext(Dispatchers.IO) { stats = GalleryOps.scan(context, minAgeDays) }
             busy = false
             log(if (ok) "● 瘦身流程结束（可点“还原”回滚）" else "✗ 瘦身失败", if (ok) GREEN else RED)
         }
@@ -152,7 +161,7 @@ class SlimViewModel(private val context: Context) {
             val ok = withContext(Dispatchers.IO) {
                 GalleryOps.restore(context) { line -> log(line, pickColor(line)) }
             }
-            withContext(Dispatchers.IO) { stats = GalleryOps.scan(context) }
+            withContext(Dispatchers.IO) { stats = GalleryOps.scan(context, minAgeDays) }
             busy = false
             log(if (ok) "● 已还原" else "✗ 还原失败", if (ok) GREEN else RED)
         }
@@ -165,7 +174,7 @@ class SlimViewModel(private val context: Context) {
             val ok = withContext(Dispatchers.IO) {
                 GalleryOps.purge { line -> log(line, pickColor(line)) }
             }
-            withContext(Dispatchers.IO) { stats = GalleryOps.scan(context) }
+            withContext(Dispatchers.IO) { stats = GalleryOps.scan(context, minAgeDays) }
             busy = false
             log(if (ok) "● 暂存区已清空" else "✗ 清理失败", if (ok) GREEN else RED)
         }
